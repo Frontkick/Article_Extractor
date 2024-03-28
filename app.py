@@ -4,11 +4,14 @@ from flask_cors import CORS
 from bs4 import BeautifulSoup
 from newspaper import Article
 import time
+import os
+from dotenv import load_dotenv
+
 
 app = Flask(__name__)
 CORS(app)
 
-
+load_dotenv()
 async def fetch_article_content(url):
     try:
         async with aiohttp.ClientSession() as session:
@@ -25,14 +28,14 @@ async def fetch_article_content(url):
 
 
 async def get_summary(prompt):
-    api_key = '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'
+    Oapi_key=os.getenv("OPENAI_KEY")
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
                     "https://api.openai.com/v1/chat/completions",
                     headers={
                         "Content-Type": "application/json",
-                        "Authorization": f"Bearer {api_key}"
+                        "Authorization": f"Bearer {Oapi_key}"
                     },
                     json={
                         "model": "gpt-3.5-turbo",
@@ -50,9 +53,7 @@ async def get_summary(prompt):
         return str(e)
 
 
-async def search_articles(query, num_results=10):
-    api_key = "AIzaSyDgs-7ixnQARDlL2iVKk5SNTu5KhduwOiE"
-    search_engine_id = "d5e0315085b194afb"
+async def search_articles(api_key, search_engine_id, query, num_results=10):
     url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}&num={num_results}"
 
     async with aiohttp.ClientSession() as session:
@@ -69,9 +70,8 @@ async def search_articles(query, num_results=10):
                     article_content = await fetch_article_content(article_url)
 
                     if article_content:
-                        
-                        summary = await get_summary(article_content)
                         time.sleep(2)
+                        summary = await get_summary(article_content)
                         sum_error = "429 Client Error: Too Many Requests for url: https://api.openai.com/v1/chat/completions"
                         sum_error2 = "429, message='Too Many Requests', url=URL('https://api.openai.com/v1/chat/completions')"
                         sum_error3 = "400, message='Bad Request', url=URL('https://api.openai.com/v1/chat/completions')"
@@ -86,7 +86,9 @@ async def search_articles(query, num_results=10):
 
 @app.route('/api/<string:param>', methods=['GET'])
 async def get_request(param):
-    articles = await search_articles(param)
+    api_key=os.getenv("API_KEY")
+    search_engine_id=os.getenv("SEARCH_ENGINE_ID")
+    articles = await search_articles(api_key, search_engine_id, param)
     if articles:
         response = {
             'articles': articles
@@ -99,9 +101,3 @@ async def get_request(param):
 @app.route('/')
 def start():
     return "Server is running"
-
-
-if __name__ == '__main__':
-    api_key = "AIzaSyDgs-7ixnQARDlL2iVKk5SNTu5KhduwOiE"
-    search_engine_id = "d5e0315085b194afb"
-    app.run(debug=True, port=4000)
