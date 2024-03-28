@@ -3,15 +3,15 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from bs4 import BeautifulSoup
 from newspaper import Article
-import time
-import os
+import google.generativeai as genai
 from dotenv import load_dotenv
-
+import os
 
 app = Flask(__name__)
 CORS(app)
 
 load_dotenv()
+
 async def fetch_article_content(url):
     try:
         async with aiohttp.ClientSession() as session:
@@ -26,35 +26,28 @@ async def fetch_article_content(url):
         print(f"An error occurred: {e}")
         return None
 
+def get_summary(prompt):
+  # Configure the API key
+  api_key = os.getenv("GEMINI_KEY")
+  genai.configure(api_key=api_key)
 
-async def get_summary(prompt):
-    Oapi_key=os.getenv("OPENAI_KEY")
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {Oapi_key}"
-                    },
-                    json={
-                        "model": "gpt-3.5-turbo",
-                        "messages": [
-                            {"role": "system", "content": "you are a summarizer which summarize all the text into 5 points and also extract 5 keywords from the summary "},
-                            {"role": "user", "content": prompt}
-                        ]
+  # Create a GenerativeModel instance
+  model = genai.GenerativeModel('gemini-pro')
 
-                    }
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                return data['choices'][0]['message']['content']
-    except Exception as e:
-        return str(e)
+  # Generate content using the prompt
+  response = model.generate_content(prompt)
+
+  # Return the generated text
+  return response.text
 
 
-async def search_articles(api_key, search_engine_id, query, num_results=10):
+
+
+async def search_articles(query, num_results=10):
+    api_key = os.getenv("API_KEY")
+    search_engine_id = os.getenv("SEARCH_ENGINE_ID")
     url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}&num={num_results}"
+    
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
@@ -70,14 +63,9 @@ async def search_articles(api_key, search_engine_id, query, num_results=10):
                     article_content = await fetch_article_content(article_url)
 
                     if article_content:
-                        time.sleep(2)
-                        summary = await get_summary(article_content)
-                        sum_error = "429 Client Error: Too Many Requests for url: https://api.openai.com/v1/chat/completions"
-                        sum_error2 = "429, message='Too Many Requests', url=URL('https://api.openai.com/v1/chat/completions')"
-                        sum_error3 = "400, message='Bad Request', url=URL('https://api.openai.com/v1/chat/completions')"
-                        if summary != sum_error2 :
-                            if summary!=sum_error3:
-                                articles.append({'title': article_title, 'url': article_url,"summary":summary})  # Append each article to the list
+
+                        summary = get_summary("Summarize this article in 5 points"+article_content)
+                        articles.append({'title': article_title, 'url': article_url,"summary":summary})  # Append each article to the list
 
                 return articles  # Return the list of articles
             else:
@@ -86,9 +74,7 @@ async def search_articles(api_key, search_engine_id, query, num_results=10):
 
 @app.route('/api/<string:param>', methods=['GET'])
 async def get_request(param):
-    api_key=os.getenv("API_KEY")
-    search_engine_id=os.getenv("SEARCH_ENGINE_ID")
-    articles = await search_articles(api_key, search_engine_id, param)
+    articles = await search_articles(param)
     if articles:
         response = {
             'articles': articles
@@ -102,10 +88,6 @@ async def get_request(param):
 def start():
     return "Server is running"
 
-from app import app
 
 if __name__ == '__main__':
-    
-    app.run()
-
-    
+    app.run(debug=True, port=4000)
