@@ -101,3 +101,11 @@ async def get_request(param):
 @app.route('/')
 def start():
     return "Server is running"
+
+from app import app
+
+if __name__ == '__main__':
+    
+    app.run(debug=True, port=4000)
+
+    
