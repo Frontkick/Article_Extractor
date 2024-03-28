@@ -50,7 +50,9 @@ async def get_summary(prompt):
         return str(e)
 
 
-async def search_articles(api_key, search_engine_id, query, num_results=10):
+async def search_articles(query, num_results=10):
+    api_key = "AIzaSyDgs-7ixnQARDlL2iVKk5SNTu5KhduwOiE"
+    search_engine_id = "d5e0315085b194afb"
     url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}&num={num_results}"
 
     async with aiohttp.ClientSession() as session:
@@ -67,8 +69,9 @@ async def search_articles(api_key, search_engine_id, query, num_results=10):
                     article_content = await fetch_article_content(article_url)
 
                     if article_content:
-                        time.sleep(2)
+                        
                         summary = await get_summary(article_content)
+                        time.sleep(2)
                         sum_error = "429 Client Error: Too Many Requests for url: https://api.openai.com/v1/chat/completions"
                         sum_error2 = "429, message='Too Many Requests', url=URL('https://api.openai.com/v1/chat/completions')"
                         sum_error3 = "400, message='Bad Request', url=URL('https://api.openai.com/v1/chat/completions')"
@@ -83,7 +86,7 @@ async def search_articles(api_key, search_engine_id, query, num_results=10):
 
 @app.route('/api/<string:param>', methods=['GET'])
 async def get_request(param):
-    articles = await search_articles(api_key, search_engine_id, param)
+    articles = await search_articles(param)
     if articles:
         response = {
             'articles': articles
