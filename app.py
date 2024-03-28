@@ -64,7 +64,7 @@ async def search_articles(query, num_results=10):
 
                     if article_content:
 
-                        summary = get_summary("Summarize this article in 5 points"+article_content)
+                        summary = get_summary("Summarize this article in 5 points and it should be only 5 points"+article_content)
                         articles.append({'title': article_title, 'url': article_url,"summary":summary})  # Append each article to the list
 
                 return articles  # Return the list of articles
