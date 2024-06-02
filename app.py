@@ -1,89 +1,55 @@
-import aiohttp
-from flask import Flask, jsonify
+
+from flask import Flask,request, jsonify
 from flask_cors import CORS
-from bs4 import BeautifulSoup
-from newspaper import Article
-import google.generativeai as genai
+import requests
+
 from dotenv import load_dotenv
 import os
+
+def call_post_with_x_www_form_urlencoded(code):
+    # Define the data to be sent in x-www-form-urlencoded format
+    url = "https://cold-zaria-suckyou-eb2c31ea.koyeb.app/ortus"
+    data = {
+        'code': code
+    }
+
+    try:
+        # Make the POST request with requests.post()
+        response = requests.post(url, data=data)
+        
+        # Check if the request was successful (status code 200)
+        if response.status_code == 200:
+            print("POST request successful!")
+            # Return the response text
+            return response.text
+        else:
+            print("POST request failed with status code:", response.status_code)
+            return None
+    except Exception as e:
+        print("An error occurred:", e)
+        return None
 
 app = Flask(__name__)
 CORS(app)
 
 load_dotenv()
 
-async def fetch_article_content(url):
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                response.raise_for_status()
-                html_content = await response.text()
+@app.route('/api', methods=['POST'])
+def process_post_request():
+    # Get the 'code' parameter from the POST request
+    code = request.form.get('code')
 
-        soup = BeautifulSoup(html_content, 'html.parser')
-        article_text = "\n".join([p.get_text() for p in soup.find_all('p')])
-        return article_text.strip()
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
-
-def get_summary(prompt):
-  # Configure the API key
-  api_key = os.getenv("GEMINI_KEY")
-  genai.configure(api_key=api_key)
-
-  # Create a GenerativeModel instance
-  model = genai.GenerativeModel('gemini-pro')
-
-  # Generate content using the prompt
-  response = model.generate_content(prompt)
-
-  # Return the generated text
-  return response.text
-
-
-
-
-async def search_articles(query, num_results=10):
-    api_key = os.getenv("API_KEY")
-    search_engine_id = os.getenv("SEARCH_ENGINE_ID")
-    url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}&num={num_results}"
-    
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                data = await response.json()
-                items = data.get('items', [])
-
-                articles = []  # Store articles in a list
-                for item in items:
-                    article_title = item.get('title')
-                    article_url = item.get('link')
-                    
-                    article_content = await fetch_article_content(article_url)
-
-                    if article_content:
-
-                        summary = get_summary("Summarize this article in 5 points and it should be only 5 points"+article_content)
-                        articles.append({'title': article_title, 'url': article_url,"summary":summary})  # Append each article to the list
-
-                return articles  # Return the list of articles
-            else:
-                return None  # Return None if request failed
-
-
-@app.route('/api/<string:param>', methods=['GET'])
-async def get_request(param):
-    articles = await search_articles(param)
-    if articles:
-        response = {
-            'articles': articles
-        }
+    # Check if 'code' parameter is present
+    if code:
+        # Process the code (you can replace this with any logic you want)
+        output = call_post_with_x_www_form_urlencoded(code)
+        # Return the output as JSON
+        return jsonify({"output": output})
     else:
-        response = {
-            'message': 'Failed to fetch search results.'
-        }
-    return jsonify(response)
+        # If 'code' parameter is missing, return an error message
+        return jsonify({"error": "No 'code' parameter provided"}), 400
+
+
 @app.route('/')
 def start():
     return "Server is running"
